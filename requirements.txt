@@ -1,0 +1,4 @@
+qrcode
+netifaces
+flask
+nuitka

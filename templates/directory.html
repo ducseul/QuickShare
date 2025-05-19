@@ -1,0 +1,304 @@
+<!DOCTYPE HTML>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ current_dir }} - QuickShare</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            color: #333;
+            background-color: #f8f9fa;
+        }
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background-color: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+        header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #eee;
+        }
+        h1 {
+            margin: 0;
+            font-size: 24px;
+            flex-grow: 1;
+        }
+        .back-link {
+            text-decoration: none;
+            color: #007bff;
+            display: flex;
+            align-items: center;
+            font-size: 16px;
+            margin-bottom: 15px;
+        }
+        .back-link:hover {
+            text-decoration: underline;
+        }
+        .list {
+            list-style-type: none;
+            padding: 0;
+            margin: 0;
+        }
+        .list-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 10px;
+            border-bottom: 1px solid #f0f0f0;
+            transition: background-color 0.2s;
+        }
+        .list-item:hover {
+            background-color: #f5f8ff;
+        }
+        .item-icon {
+            margin-right: 10px;
+            font-size: 20px;
+            width: 24px;
+            text-align: center;
+        }
+        .item-link {
+            flex-grow: 1;
+            text-decoration: none;
+            color: #333;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .item-link:hover {
+            color: #007bff;
+        }
+        .folder-link {
+            font-weight: 500;
+        }
+        .item-actions {
+            display: flex;
+            gap: 10px;
+        }
+        .action-button {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            padding: 6px 12px;
+            cursor: pointer;
+            text-decoration: none;
+            font-size: 14px;
+            transition: background-color 0.2s;
+        }
+        .action-button:hover {
+            background-color: #0069d9;
+        }
+        .action-button.preview {
+            background-color: #6c757d;
+        }
+        .action-button.preview:hover {
+            background-color: #5a6268;
+        }
+        .preview-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.8);
+            display: none;
+            z-index: 1000;
+            padding: 20px;
+            overflow: auto;
+        }
+        .preview-container.active {
+            display: flex;
+            flex-direction: column;
+        }
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            color: white;
+            margin-bottom: 20px;
+        }
+        .preview-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin: 0;
+        }
+        .preview-close {
+            cursor: pointer;
+            font-size: 30px;
+            color: white;
+            transition: color 0.2s;
+        }
+        .preview-close:hover {
+            color: #dc3545;
+        }
+        .preview-content {
+            flex-grow: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: auto;
+        }
+        .preview-content img {
+            max-width: 100%;
+            max-height: 90vh;
+            object-fit: contain;
+        }
+        .preview-content video,
+        .preview-content audio {
+            max-width: 100%;
+        }
+        .preview-content object {
+            width: 100%;
+            height: 90vh;
+        }
+        .no-items {
+            text-align: center;
+            padding: 20px;
+            color: #6c757d;
+            font-style: italic;
+        }
+        @media (max-width: 768px) {
+            .container {
+                padding: 15px;
+            }
+            h1 {
+                font-size: 20px;
+            }
+            .list-item {
+                padding: 10px 5px;
+            }
+            .action-button {
+                padding: 4px 8px;
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>{{ current_dir }}</h1>
+        </header>
+
+        {% if parent_path is not none %}
+        <a href="{{ url_for('serve_path', path=parent_path) }}" class="back-link">
+            ⬅️ Back to parent directory
+        </a>
+        {% endif %}
+
+        <ul class="list">
+            {% if not folders and not files %}
+                <li class="no-items">This folder is empty</li>
+            {% else %}
+                {% for folder in folders %}
+                    <li class="list-item">
+                        <div class="item-icon">📁</div>
+                        <a href="{{ url_for('serve_path', path=folder.path) }}" class="item-link folder-link">
+                            {{ folder.name }}/
+                        </a>
+                    </li>
+                {% endfor %}
+
+                {% for file in files %}
+                    <li class="list-item">
+                        <div class="item-icon">📄</div>
+                        {% if file.can_preview %}
+                            <a href="javascript:void(0)" onclick="showPreview('{{ url_for('serve_path', path=file.path) }}', '{{ file.name }}', '{{ file.content_type }}')" class="item-link">
+                                {{ file.name }}
+                            </a>
+                            <div class="item-actions">
+                                <a href="{{ url_for('serve_path', path=file.path) }}" class="action-button preview">Preview</a>
+                                <a href="{{ url_for('serve_path', path=file.path, download='true') }}" class="action-button">Download</a>
+                            </div>
+                        {% else %}
+                            <a href="{{ url_for('serve_path', path=file.path) }}" class="item-link">
+                                {{ file.name }}
+                            </a>
+                            <div class="item-actions">
+                                <a href="{{ url_for('serve_path', path=file.path, download='true') }}" class="action-button">Download</a>
+                            </div>
+                        {% endif %}
+                    </li>
+                {% endfor %}
+            {% endif %}
+        </ul>
+    </div>
+
+    <div class="preview-container" id="preview-container">
+        <div class="preview-header">
+            <h2 class="preview-title" id="preview-title"></h2>
+            <span class="preview-close" onclick="closePreview()">×</span>
+        </div>
+        <div class="preview-content" id="preview-content"></div>
+    </div>
+
+    <script>
+        function showPreview(path, fileName, contentType) {
+            const container = document.getElementById("preview-container");
+            const content = document.getElementById("preview-content");
+            const title = document.getElementById("preview-title");
+
+            title.textContent = fileName;
+            container.classList.add("active");
+            content.innerHTML = "";
+
+            if (contentType.startsWith("image/")) {
+                const img = document.createElement("img");
+                img.src = path;
+                content.appendChild(img);
+            } else if (contentType.startsWith("video/")) {
+                const video = document.createElement("video");
+                video.src = path;
+                video.controls = true;
+                video.autoplay = true;
+                content.appendChild(video);
+            } else if (contentType.startsWith("audio/")) {
+                const audio = document.createElement("audio");
+                audio.src = path;
+                audio.controls = true;
+                content.appendChild(audio);
+            } else if (contentType === "application/pdf") {
+                const obj = document.createElement("object");
+                obj.data = path;
+                obj.type = "application/pdf";
+                content.appendChild(obj);
+            } else if (contentType.startsWith("text/")) {
+                const iframe = document.createElement("iframe");
+                iframe.src = path;
+                iframe.style.width = "100%";
+                iframe.style.height = "90vh";
+                iframe.style.border = "none";
+                iframe.style.backgroundColor = "white";
+                content.appendChild(iframe);
+            }
+        }
+
+        function closePreview() {
+            document.getElementById("preview-container").classList.remove("active");
+            document.getElementById("preview-content").innerHTML = "";
+        }
+
+        // Close preview when clicking outside the content
+        document.getElementById("preview-container").addEventListener("click", function(e) {
+            if (e.target === this) {
+                closePreview();
+            }
+        });
+
+        // Close preview with Escape key
+        document.addEventListener("keydown", function(e) {
+            if (e.key === "Escape" && document.getElementById("preview-container").classList.contains("active")) {
+                closePreview();
+            }
+        });
+    </script>
+</body>
+</html>
